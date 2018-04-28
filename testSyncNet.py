@@ -24,7 +24,7 @@ parser.add_argument('--gpu_id', type=int, default='0', help='');
 parser.add_argument('--initial_model', type=str, default="data/syncnet.model", help='');
 parser.add_argument('--batch_size', type=int, default='50', help='');
 parser.add_argument('--vshift', type=int, default='15', help='');
-parser.add_argument('--video', type=str, default="/mnt/hdd1/krdemo/crop/cnn/00001.avi", help='');
+parser.add_argument('--video', type=str, default="", help='');
 
 args = parser.parse_args();
 
