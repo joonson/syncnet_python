@@ -8,7 +8,7 @@ python_speech_features
 ```
 
 
-## Demo execution
+## Demo
 
 ```
 python testSyncNet.py --video data/example.avi
