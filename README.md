@@ -1,6 +1,7 @@
 
 ## Prerequisites
 ```
+python (v2.7)
 pytorch (v0.3)
 numpy
 opencv-python (v2.4.9)
