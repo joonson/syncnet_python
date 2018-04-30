@@ -20,7 +20,6 @@ from TwoStreamMFCC import *
 
 parser = argparse.ArgumentParser(description = "SyncNet");
 
-parser.add_argument('--gpu_id', type=int, default='0', help='');
 parser.add_argument('--initial_model', type=str, default="data/syncnet.model", help='');
 parser.add_argument('--batch_size', type=int, default='20', help='');
 parser.add_argument('--vshift', type=int, default='15', help='');
@@ -51,11 +50,10 @@ def calc_pdist(feat1, feat2, vshift=10):
 
 class SyncNetInstance(torch.nn.Module):
 
-    def __init__(self, GPU_ID = 0, dropout = 0, num_layers_in_fc_layers = 1024):
+    def __init__(self, dropout = 0, num_layers_in_fc_layers = 1024):
         super(SyncNetInstance, self).__init__();
 
-        self.__GPU_ID__ = GPU_ID;
-        self.__S__ = S(self.__GPU_ID__, num_layers_in_fc_layers = num_layers_in_fc_layers);
+        self.__S__ = S(num_layers_in_fc_layers = num_layers_in_fc_layers);
 
     def evaluate(self, videopath, batch_size=50, vshift=10):
 
@@ -120,12 +118,12 @@ class SyncNetInstance(torch.nn.Module):
             
             im_batch = [ imtv[:,:,vframe:vframe+5,:,:] for vframe in range(i,min(lastframe,i+batch_size)) ]
             im_in = torch.cat(im_batch,0)
-            im_out  = self.__S__.forward_lip(im_in.cuda(self.__GPU_ID__));
+            im_out  = self.__S__.forward_lip(im_in.cuda());
             im_feat.append(im_out.data.cpu())
 
             cc_batch = [ cct[:,:,:,vframe*4:vframe*4+20] for vframe in range(i,min(lastframe,i+batch_size)) ]
             cc_in = torch.cat(cc_batch,0)
-            cc_out  = self.__S__.forward_aud(cc_in.cuda(self.__GPU_ID__))
+            cc_out  = self.__S__.forward_aud(cc_in.cuda())
             cc_feat.append(cc_out.data.cpu())
 
         im_feat = torch.cat(im_feat,0)
@@ -158,7 +156,7 @@ class SyncNetInstance(torch.nn.Module):
 
 # ==================== MAKE DIRECTORIES ====================
 
-s = SyncNetInstance(GPU_ID = args.gpu_id);
+s = SyncNetInstance();
 
 if(args.initial_model != ""):
     s.loadParameters(args.initial_model);

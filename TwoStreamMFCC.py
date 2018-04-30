@@ -11,7 +11,7 @@ def load(filename):
     return net;
     
 class S(nn.Module):
-    def __init__(self, GPU_ID, num_layers_in_fc_layers = 1024):
+    def __init__(self, num_layers_in_fc_layers = 1024):
         super(S, self).__init__();
 
         self.__nFeatures__ = 24;
@@ -90,10 +90,10 @@ class S(nn.Module):
             nn.ReLU(inplace=True),
         );
         
-        self.netcnnaud = self.netcnnaud.cuda(GPU_ID);
-        self.netcnnlip = self.netcnnlip.cuda(GPU_ID);
-        self.netfcaud  = self.netfcaud.cuda(GPU_ID);
-        self.netfclip = self.netfclip.cuda(GPU_ID);
+        self.netcnnaud = self.netcnnaud.cuda();
+        self.netcnnlip = self.netcnnlip.cuda();
+        self.netfcaud  = self.netfcaud.cuda();
+        self.netfclip = self.netfclip.cuda();
         
 
     def forward_aud(self, x):
