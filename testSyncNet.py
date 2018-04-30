@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser(description = "SyncNet");
 
 parser.add_argument('--gpu_id', type=int, default='0', help='');
 parser.add_argument('--initial_model', type=str, default="data/syncnet.model", help='');
-parser.add_argument('--batch_size', type=int, default='50', help='');
+parser.add_argument('--batch_size', type=int, default='20', help='');
 parser.add_argument('--vshift', type=int, default='15', help='');
 parser.add_argument('--video', type=str, default="", help='');
 
@@ -35,7 +35,7 @@ def calc_pdist(feat1, feat2, vshift=10):
     
     win_size = vshift*2+1
 
-    feat2p = torch.nn.functional.pad(feat2,(0,0,vshift,vshift))
+    feat2p = torch.nn.functional.pad(feat2,(0,0,vshift,vshift)).data
 
     dists = []
 
@@ -104,7 +104,8 @@ class SyncNetInstance(torch.nn.Module):
         # ========== ==========
 
         if float(len(audio))/float(len(images)) != 640 :
-            raw_input("Mismatch between the number of audio and video frames. Press ENTER to continue.")
+            print("Mismatch between the number of audio and video frames. Type 'cont' to continue.")
+            pdb.set_trace()
         
         # ========== ==========
         # Generate video and audio feats
@@ -118,14 +119,14 @@ class SyncNetInstance(torch.nn.Module):
         for i in range(0,lastframe,batch_size):
             
             im_batch = [ imtv[:,:,vframe:vframe+5,:,:] for vframe in range(i,min(lastframe,i+batch_size)) ]
-            im_in = torch.cat(im_batch,0).cuda(self.__GPU_ID__)
-            im_out  = self.__S__.forward_lip(im_in);
-            im_feat.append(im_out.cpu())
+            im_in = torch.cat(im_batch,0)
+            im_out  = self.__S__.forward_lip(im_in.cuda(self.__GPU_ID__));
+            im_feat.append(im_out.data.cpu())
 
             cc_batch = [ cct[:,:,:,vframe*4:vframe*4+20] for vframe in range(i,min(lastframe,i+batch_size)) ]
-            cc_in = torch.cat(cc_batch,0).cuda(self.__GPU_ID__)
-            cc_out  = self.__S__.forward_aud(cc_in)
-            cc_feat.append(cc_out.cpu())
+            cc_in = torch.cat(cc_batch,0)
+            cc_out  = self.__S__.forward_aud(cc_in.cuda(self.__GPU_ID__))
+            cc_feat.append(cc_out.data.cpu())
 
         im_feat = torch.cat(im_feat,0)
         cc_feat = torch.cat(cc_feat,0)
