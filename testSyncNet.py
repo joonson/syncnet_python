@@ -165,5 +165,3 @@ if(args.initial_model != ""):
     print("Model %s loaded."%args.initial_model);
 
 s.evaluate(args.video, batch_size=args.batch_size, vshift=args.vshift)
-
-
