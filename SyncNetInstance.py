@@ -4,28 +4,13 @@
 
 import torch
 import numpy
-import subprocess
-import time
-import argparse
-import pdb
+import time, pdb, argparse, subprocess
 import cv2
 import python_speech_features
 
+from scipy import signal
 from scipy.io import wavfile
-from TwoStreamMFCC import *
-
-
-# ==================== LOAD PARAMS ====================
-
-
-parser = argparse.ArgumentParser(description = "SyncNet");
-
-parser.add_argument('--initial_model', type=str, default="data/syncnet.model", help='');
-parser.add_argument('--batch_size', type=int, default='20', help='');
-parser.add_argument('--vshift', type=int, default='15', help='');
-parser.add_argument('--video', type=str, default="", help='');
-
-args = parser.parse_args();
+from SyncNetModel import *
 
 
 # ==================== Get OFFSET ====================
@@ -34,17 +19,15 @@ def calc_pdist(feat1, feat2, vshift=10):
     
     win_size = vshift*2+1
 
-    feat2p = torch.nn.functional.pad(feat2,(0,0,vshift,vshift)).data
+    feat2p = torch.nn.functional.pad(feat2,(0,0,vshift,vshift))
 
     dists = []
 
     for i in range(0,len(feat1)):
 
-        dists.append(torch.nn.functional.cosine_similarity(feat1[[i],:].repeat(win_size, 1), feat2p[i:i+win_size,:]))
+        dists.append(torch.nn.functional.pairwise_distance(feat1[[i],:].repeat(win_size, 1), feat2p[i:i+win_size,:]))
 
-    meandist = torch.mean(torch.stack(dists,1),1)
-
-    return meandist, dists
+    return dists
 
 # ==================== MAIN DEF ====================
 
@@ -102,14 +85,14 @@ class SyncNetInstance(torch.nn.Module):
         # ========== ==========
 
         if float(len(audio))/float(len(images)) != 640 :
-            print("Mismatch between the number of audio and video frames. Type 'cont' to continue.")
+            print("WARNING: Mismatch between the number of audio and video frames. %d * 640 != %d. Type 'cont' to continue."%(len(images),len(audio)))
             pdb.set_trace()
         
         # ========== ==========
         # Generate video and audio feats
         # ========== ==========
 
-        lastframe = len(images)-7
+        lastframe = len(images)-6
         im_feat = []
         cc_feat = []
 
@@ -135,14 +118,25 @@ class SyncNetInstance(torch.nn.Module):
             
         print('Compute time %.3f sec.' % (time.time()-tS))
 
-        mdist, dists = calc_pdist(im_feat,cc_feat,vshift=vshift)
+        dists = calc_pdist(im_feat,cc_feat,vshift=vshift)
+        mdist = torch.mean(torch.stack(dists,1),1)
 
-        maxval, maxidx = torch.max(mdist,0)
+        minval, minidx = torch.min(mdist,0)
 
-        offset = vshift-maxidx
-        conf   = maxval-torch.median(mdist)
+        offset = vshift-minidx
+        conf   = torch.median(mdist) - minval
 
-        print('AV offset %d, conf %.3f.' % (offset,conf))
+        fdist   = numpy.stack([dist[minidx].numpy() for dist in dists])
+        # fdist   = numpy.pad(fdist, (3,3), 'constant', constant_values=15)
+        fconf   = torch.median(mdist).numpy() - fdist
+        fconfm  = signal.medfilt(fconf,kernel_size=9)
+        
+        numpy.set_printoptions(formatter={'float': '{: 0.3f}'.format})
+        print('Framewise conf: ')
+        print(fconfm)
+        print('AV offset: \t%d \nMin dist: \t%.3f\nConfidence: \t%.3f' % (offset,minval,conf))
+
+        return dists
 
 
     def loadParameters(self, path):
@@ -153,13 +147,3 @@ class SyncNetInstance(torch.nn.Module):
         for name, param in loaded_state.items():
 
             self_state[name].copy_(param);
-
-# ==================== MAKE DIRECTORIES ====================
-
-s = SyncNetInstance();
-
-if(args.initial_model != ""):
-    s.loadParameters(args.initial_model);
-    print("Model %s loaded."%args.initial_model);
-
-s.evaluate(args.video, batch_size=args.batch_size, vshift=args.vshift)
