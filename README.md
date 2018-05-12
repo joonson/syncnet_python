@@ -31,7 +31,7 @@ The demo has been tested with the package versions shown above, but may also wor
 
 SyncNet demo:
 ```
-python demo_syncnet.py --videofile data/example.avi --tmp_dir ~
+python demo_syncnet.py --videofile data/example.avi --tmp_dir /path/to/temp/directory
 ```
 
 Check that this script returns:
