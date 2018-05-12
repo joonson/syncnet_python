@@ -8,12 +8,7 @@ import cv2
 
 from scipy import signal
 
-
-# ==================== LOAD PARAMS ====================
-
-# ========== ========== ========== ==========
-# # PARSE ARGS
-# ========== ========== ========== ==========
+# ==================== PARSE ARGUMENT ====================
 
 parser = argparse.ArgumentParser(description = "SyncNet");
 parser.add_argument('--initial_model', type=str, default="data/syncnet.model", help='');
@@ -30,18 +25,15 @@ setattr(opt,'work_dir',os.path.join(opt.data_dir,'pywork'))
 setattr(opt,'crop_dir',os.path.join(opt.data_dir,'pycrop'))
 
 
-# ==================== Get OFFSET ====================
-
-
-# ==================== MAKE DIRECTORIES ====================
-
-
+# ==================== LOAD FILES ====================
 
 with open(os.path.join(opt.work_dir,opt.reference,'tracks.pckl'), 'r') as fil:
     tracks = pickle.load(fil)
 
 with open(os.path.join(opt.work_dir,opt.reference,'activesd.pckl'), 'r') as fil:
     dists = pickle.load(fil)
+
+# ==================== SMOOTH FACES ====================
 
 faces = [ [] for i in range(1000000) ]
 
@@ -57,6 +49,8 @@ for ii, track in enumerate(tracks):
 
 	for ij, frame in enumerate(track[0][0].tolist()) :
 		faces[frame].append([ii, fdist_mf[ij], track[1][0][ij], track[1][1][ij], track[1][2][ij]])
+
+# ==================== ADD DETECTIONS TO VIDEO ====================
 
 cap = cv2.VideoCapture(os.path.join(opt.avi_dir,opt.reference,'video.avi'))
 fw = int(cap.get(3))
@@ -88,7 +82,7 @@ vOut.release()
 
 # ========== CROP AUDIO FILE ==========
 
-command = ("ffmpeg -y -i %s -ac 1 -vn -acodec pcm_s16le -ar 16000 %s" % (os.path.join(opt.avi_dir,opt.reference,'video.avi'),os.path.join(opt.avi_dir,opt.reference,'audio_only.avi'))) #-async 1 
+command = ("ffmpeg -y -i %s -ac 1 -vn -acodec pcm_s16le -ar 16000 %s" % (os.path.join(opt.avi_dir,opt.reference,'video.avi'),os.path.join(opt.avi_dir,opt.reference,'audio_only.avi'))) 
 output = subprocess.call(command, shell=True, stdout=None)
 
 # ========== COMBINE AUDIO AND VIDEO FILES ==========

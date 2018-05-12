@@ -19,7 +19,6 @@ parser = argparse.ArgumentParser(description = "FaceTracker");
 parser.add_argument('--data_dir', type=str, default='/dev/shm', help='Output direcotry');
 parser.add_argument('--videofile', type=str, default='', help='Input video file');
 parser.add_argument('--reference', type=str, default='', help='Name of the video');
-parser.add_argument('--crop_shift', type=int, default=0, help='Shift of bounding box along Y axis');
 parser.add_argument('--crop_scale', type=float, default=0.5, help='Scale bounding box');
 parser.add_argument('--min_track', type=int, default=100, help='Minimum facetrack duration');
 opt = parser.parse_args();
@@ -124,7 +123,8 @@ def crop_video(opt,track,cropfile):
     dets[1].append((det[1]+det[3])*fw/2) # crop center x 
     dets[2].append((det[0]+det[2])*fh/2) # crop center y
 
-  dets[0] = signal.medfilt(dets[0],kernel_size=5)
+  # Smooth detections
+  dets[0] = signal.medfilt(dets[0],kernel_size=5)   
   dets[1] = signal.medfilt(dets[1],kernel_size=5)
   dets[2] = signal.medfilt(dets[2],kernel_size=7)
 
@@ -132,14 +132,14 @@ def crop_video(opt,track,cropfile):
 
     cs  = opt.crop_scale
 
-    bs  = det[0] # (H+W)/4
-    bsi = int(bs*(1+2*cs))
+    bs  = det[0]            # Detection box size
+    bsi = int(bs*(1+2*cs))  # Pad videos by this amount 
 
     ret, frame = cap.read()
     
     frame = np.pad(frame,((bsi,bsi),(bsi,bsi),(0,0)), 'constant', constant_values=(0,0))
-    my  = det[2]+bsi + opt.crop_shift
-    mx  = det[1]+bsi 
+    my  = det[2]+bsi  # BBox center Y
+    mx  = det[1]+bsi  # BBox center X
 
     face = frame[int(my-bs):int(my+bs*(1+2*cs)),int(mx-bs*(1+cs)):int(mx+bs*(1+cs))]
     

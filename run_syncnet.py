@@ -22,12 +22,14 @@ setattr(opt,'work_dir',os.path.join(opt.data_dir,'pywork'))
 setattr(opt,'crop_dir',os.path.join(opt.data_dir,'pycrop'))
 
 
-# ==================== MAKE DIRECTORIES ====================
+# ==================== LOAD MODEL ====================
 
 s = SyncNetInstance();
 
 s.loadParameters(opt.initial_model);
 print("Model %s loaded."%opt.initial_model);
+
+# ==================== GET OFFSETS ====================
 
 with open(os.path.join(opt.work_dir,opt.reference,'tracks.pckl'), 'r') as fil:
     tracks = pickle.load(fil)
@@ -41,6 +43,7 @@ for ii, track in enumerate(tracks):
     dists.append(dist)
     confs.append(conf)
       
+# ==================== PRINT RESULTS TO FILE ====================
 
 with open(os.path.join(opt.work_dir,opt.reference,'offsets.txt'), 'w') as fil:
     fil.write('FILENAME\tOFFSET\tCONF\n')
