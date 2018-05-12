@@ -14,6 +14,7 @@ parser.add_argument('--initial_model', type=str, default="data/syncnetl2.model",
 parser.add_argument('--batch_size', type=int, default='20', help='');
 parser.add_argument('--vshift', type=int, default='15', help='');
 parser.add_argument('--videofile', type=str, default="", help='');
+parser.add_argument('--tmp_dir', type=str, default="~", help='');
 
 opt = parser.parse_args();
 
@@ -25,4 +26,4 @@ s = SyncNetInstance();
 s.loadParameters(opt.initial_model);
 print("Model %s loaded."%opt.initial_model);
 
-s.evaluate(opt.videofile, batch_size=opt.batch_size, vshift=opt.vshift)
+s.evaluate(opt, videofile=opt.videofile)

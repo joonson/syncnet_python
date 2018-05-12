@@ -4,7 +4,7 @@
 
 import torch
 import numpy
-import time, pdb, argparse, subprocess
+import time, pdb, argparse, subprocess, os
 import cv2
 import python_speech_features
 
@@ -38,14 +38,14 @@ class SyncNetInstance(torch.nn.Module):
 
         self.__S__ = S(num_layers_in_fc_layers = num_layers_in_fc_layers);
 
-    def evaluate(self, videopath, batch_size=50, vshift=10):
+    def evaluate(self, opt, videofile):
 
         self.__S__.eval();
         
         # ========== ==========
         # Load video 
         # ========== ==========
-        cap = cv2.VideoCapture(videopath)
+        cap = cv2.VideoCapture(videofile)
 
         frame_num = 1;
         images = []
@@ -68,9 +68,9 @@ class SyncNetInstance(torch.nn.Module):
         # Load audio
         # ========== ==========
 
-        audiotmp = '/dev/shm/audio.wav'
+        audiotmp = os.path.join(opt.tmp_dir,'audio.wav')
 
-        command = ("ffmpeg -y -i %s -async 1 -ac 1 -vn -acodec pcm_s16le -ar 16000 %s" % (videopath,audiotmp))
+        command = ("ffmpeg -y -i %s -async 1 -ac 1 -vn -acodec pcm_s16le -ar 16000 %s" % (videofile,audiotmp))
         output = subprocess.call(command, shell=True, stdout=None)
 
         sample_rate, audio = wavfile.read(audiotmp)
@@ -84,8 +84,8 @@ class SyncNetInstance(torch.nn.Module):
         # Check audio and video input length
         # ========== ==========
 
-        if float(len(audio))/float(len(images)) != 640 :
-            print("WARNING: Mismatch between the number of audio and video frames. %d * 640 != %d. Type 'cont' to continue."%(len(images),len(audio)))
+        if (float(len(audio))/16000) < (float(len(images))/25) :
+            print(" *** WARNING: The audio (%.4fs) is shorter than the video (%.4fs). Type 'cont' to continue. *** "%(float(len(audio))/16000,float(len(images))/25))
             pdb.set_trace()
         
         # ========== ==========
@@ -97,14 +97,14 @@ class SyncNetInstance(torch.nn.Module):
         cc_feat = []
 
         tS = time.time()
-        for i in range(0,lastframe,batch_size):
+        for i in range(0,lastframe,opt.batch_size):
             
-            im_batch = [ imtv[:,:,vframe:vframe+5,:,:] for vframe in range(i,min(lastframe,i+batch_size)) ]
+            im_batch = [ imtv[:,:,vframe:vframe+5,:,:] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
             im_in = torch.cat(im_batch,0)
             im_out  = self.__S__.forward_lip(im_in.cuda());
             im_feat.append(im_out.data.cpu())
 
-            cc_batch = [ cct[:,:,:,vframe*4:vframe*4+20] for vframe in range(i,min(lastframe,i+batch_size)) ]
+            cc_batch = [ cct[:,:,:,vframe*4:vframe*4+20] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
             cc_in = torch.cat(cc_batch,0)
             cc_out  = self.__S__.forward_aud(cc_in.cuda())
             cc_feat.append(cc_out.data.cpu())
@@ -118,12 +118,12 @@ class SyncNetInstance(torch.nn.Module):
             
         print('Compute time %.3f sec.' % (time.time()-tS))
 
-        dists = calc_pdist(im_feat,cc_feat,vshift=vshift)
+        dists = calc_pdist(im_feat,cc_feat,vshift=opt.vshift)
         mdist = torch.mean(torch.stack(dists,1),1)
 
         minval, minidx = torch.min(mdist,0)
 
-        offset = vshift-minidx
+        offset = opt.vshift-minidx
         conf   = torch.median(mdist) - minval
 
         fdist   = numpy.stack([dist[minidx].numpy() for dist in dists])
@@ -136,7 +136,8 @@ class SyncNetInstance(torch.nn.Module):
         print(fconfm)
         print('AV offset: \t%d \nMin dist: \t%.3f\nConfidence: \t%.3f' % (offset,minval,conf))
 
-        return dists
+        dists_npy = numpy.array([ dist.numpy() for dist in dists ])
+        return offset.numpy(), conf.numpy(), dists_npy
 
 
     def loadParameters(self, path):
