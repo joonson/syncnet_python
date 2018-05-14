@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+cuda = False
+
 def save(model, filename):
     with open(filename, "wb") as f:
         torch.save(model, f);
@@ -90,11 +92,11 @@ class S(nn.Module):
             nn.ReLU(inplace=True),
         );
         
-        self.netcnnaud = self.netcnnaud.cuda();
-        self.netcnnlip = self.netcnnlip.cuda();
-        self.netfcaud  = self.netfcaud.cuda();
-        self.netfclip = self.netfclip.cuda();
-        
+        if cuda:
+            self.netcnnaud = self.netcnnaud.cuda();
+            self.netcnnlip = self.netcnnlip.cuda();
+            self.netfcaud  = self.netfcaud.cuda();
+            self.netfclip = self.netfclip.cuda();
 
     def forward_aud(self, x):
 
