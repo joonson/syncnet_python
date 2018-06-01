@@ -37,8 +37,8 @@ python demo_syncnet.py --videofile data/example.avi --tmp_dir /path/to/temp/dire
 Check that this script returns:
 ```
 AV offset:      4 
-Min dist:       6.568
-Confidence:     9.889
+Min dist:       6.742
+Confidence:     10.447
 ```
 
 Full pipeline:
