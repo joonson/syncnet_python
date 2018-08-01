@@ -4,7 +4,7 @@ This repository contains the demo for the audio-to-video synchronisation network
 1. Removing temporal lags between the audio and visual streams in a video;
 2. Determining who is speaking amongst multiple faces in a video. 
 
-The model can be used for non-commercial research purposes under <a href="https://creativecommons.org/licenses/by-nc/4.0/">Creative Commons Attribution License</a>. Please cite the paper below if you make use of the software. 
+The model can be used for research purposes under <a href="https://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution License</a>. Please cite the paper below if you make use of the software. 
 
 ## Prerequisites
 The following packages are required to run the SyncNet demo:
