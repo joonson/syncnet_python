@@ -12,6 +12,7 @@ from scipy import signal
 from scipy.io import wavfile
 from SyncNetModel import *
 
+cuda = False
 
 # ==================== Get OFFSET ====================
 
@@ -101,12 +102,18 @@ class SyncNetInstance(torch.nn.Module):
             
             im_batch = [ imtv[:,:,vframe:vframe+5,:,:] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
             im_in = torch.cat(im_batch,0)
-            im_out  = self.__S__.forward_lip(im_in.cuda());
+            if cuda:
+                im_out  = self.__S__.forward_lip(im_in.cuda());
+            else:
+                im_out  = self.__S__.forward_lip(im_in);
             im_feat.append(im_out.data.cpu())
 
             cc_batch = [ cct[:,:,:,vframe*4:vframe*4+20] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
             cc_in = torch.cat(cc_batch,0)
-            cc_out  = self.__S__.forward_aud(cc_in.cuda())
+            if cuda:
+                cc_out  = self.__S__.forward_aud(cc_in.cuda())
+            else:
+                cc_out  = self.__S__.forward_aud(cc_in)
             cc_feat.append(cc_out.data.cpu())
 
         im_feat = torch.cat(im_feat,0)

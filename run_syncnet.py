@@ -31,7 +31,7 @@ print("Model %s loaded."%opt.initial_model);
 
 # ==================== GET OFFSETS ====================
 
-with open(os.path.join(opt.work_dir,opt.reference,'tracks.pckl'), 'r') as fil:
+with open(os.path.join(opt.work_dir,opt.reference,'tracks.pckl'), 'rb') as fil:
     tracks = pickle.load(fil)
 
 dists = []
