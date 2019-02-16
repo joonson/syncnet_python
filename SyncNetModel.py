@@ -108,6 +108,7 @@ class S(nn.Module):
 
     def forward_lipfeat(self, x):
 
-        out = self.netcnnlip(x);
+        mid = self.netcnnlip(x);
+        out = mid.view((mid.size()[0], -1)); # N x (ch x 24)
 
         return out;
