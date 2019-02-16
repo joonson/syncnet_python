@@ -36,7 +36,7 @@ class SyncNetInstance(torch.nn.Module):
     def __init__(self, dropout = 0, num_layers_in_fc_layers = 1024):
         super(SyncNetInstance, self).__init__();
 
-        self.__S__ = S(num_layers_in_fc_layers = num_layers_in_fc_layers);
+        self.__S__ = S(num_layers_in_fc_layers = num_layers_in_fc_layers).cuda();
 
     def evaluate(self, opt, videofile):
 
@@ -138,6 +138,57 @@ class SyncNetInstance(torch.nn.Module):
 
         dists_npy = numpy.array([ dist.numpy() for dist in dists ])
         return offset.numpy(), conf.numpy(), dists_npy
+
+    def extract_feature(self, opt, videofile):
+
+        self.__S__.eval();
+        
+        # ========== ==========
+        # Load video 
+        # ========== ==========
+        cap = cv2.VideoCapture(videofile)
+
+        frame_num = 1;
+        images = []
+        while frame_num:
+            frame_num += 1
+            ret, image = cap.read()
+            if ret == 0:
+                break
+
+            image_np = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            images.append(image_np)
+
+        im = numpy.stack(images,axis=3)
+        im = numpy.expand_dims(im,axis=0)
+        im = numpy.transpose(im,(0,3,4,1,2))
+
+        imtv = torch.autograd.Variable(torch.from_numpy(im.astype(float)).float())
+        
+        # ========== ==========
+        # Generate video feats
+        # ========== ==========
+
+        lastframe = len(images)-4
+        im_feat = []
+
+        tS = time.time()
+        for i in range(0,lastframe,opt.batch_size):
+            
+            im_batch = [ imtv[:,:,vframe:vframe+5,:,:] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
+            im_in = torch.cat(im_batch,0)
+            im_out  = self.__S__.forward_lip(im_in.cuda());
+            im_feat.append(im_out.data.cpu())
+
+        im_feat = torch.cat(im_feat,0)
+
+        # ========== ==========
+        # Compute offset
+        # ========== ==========
+            
+        print('Compute time %.3f sec.' % (time.time()-tS))
+
+        return im_feat
 
 
     def loadParameters(self, path):

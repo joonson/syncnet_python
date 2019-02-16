@@ -89,12 +89,6 @@ class S(nn.Module):
             nn.BatchNorm3d(2048),
             nn.ReLU(inplace=True),
         );
-        
-        self.netcnnaud = self.netcnnaud.cuda();
-        self.netcnnlip = self.netcnnlip.cuda();
-        self.netfcaud  = self.netfcaud.cuda();
-        self.netfclip = self.netfclip.cuda();
-        
 
     def forward_aud(self, x):
 
@@ -109,5 +103,11 @@ class S(nn.Module):
         mid = self.netcnnlip(x); 
         mid = mid.view((mid.size()[0], -1)); # N x (ch x 24)
         out = self.netfclip(mid);
+
+        return out;
+
+    def forward_lipfeat(self, x):
+
+        out = self.netcnnlip(x);
 
         return out;
