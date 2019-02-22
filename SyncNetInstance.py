@@ -55,8 +55,7 @@ class SyncNetInstance(torch.nn.Module):
             if ret == 0:
                 break
 
-            image_np = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            images.append(image_np)
+            images.append(image)
 
         im = numpy.stack(images,axis=3)
         im = numpy.expand_dims(im,axis=0)

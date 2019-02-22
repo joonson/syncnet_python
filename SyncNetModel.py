@@ -42,23 +42,23 @@ class S(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=(3,3), stride=(2,2)),
             
-            nn.Conv2d(256, 2048, kernel_size=(5,4), padding=(0,0)),
-            nn.BatchNorm2d(2048),
+            nn.Conv2d(256, 512, kernel_size=(5,4), padding=(0,0)),
+            nn.BatchNorm2d(512),
             nn.ReLU(),
         );
 
         self.netfcaud = nn.Sequential(
-            nn.Linear(2048, 2048),
-            nn.BatchNorm1d(2048),
+            nn.Linear(512, 512),
+            nn.BatchNorm1d(512),
             nn.ReLU(),
-            nn.Linear(2048, num_layers_in_fc_layers),
+            nn.Linear(512, num_layers_in_fc_layers),
         );
 
         self.netfclip = nn.Sequential(
-            nn.Linear(2048, 2048),
-            nn.BatchNorm1d(2048),
+            nn.Linear(512, 512),
+            nn.BatchNorm1d(512),
             nn.ReLU(),
-            nn.Linear(2048, num_layers_in_fc_layers),
+            nn.Linear(512, num_layers_in_fc_layers),
         );
 
         self.netcnnlip = nn.Sequential(
@@ -85,8 +85,8 @@ class S(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool3d(kernel_size=(1,3,3), stride=(1,2,2)),
 
-            nn.Conv3d(256, 2048, kernel_size=(1,6,6), padding=0),
-            nn.BatchNorm3d(2048),
+            nn.Conv3d(256, 512, kernel_size=(1,6,6), padding=0),
+            nn.BatchNorm3d(512),
             nn.ReLU(inplace=True),
         );
 
