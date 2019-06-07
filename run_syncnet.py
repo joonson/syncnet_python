@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser(description = "SyncNet");
 parser.add_argument('--initial_model', type=str, default="data/syncnet_v2.model", help='');
 parser.add_argument('--batch_size', type=int, default='20', help='');
 parser.add_argument('--vshift', type=int, default='15', help='');
-parser.add_argument('--data_dir', type=str, default='/mnt/hdd1/krdemo4', help='');
+parser.add_argument('--data_dir', type=str, default='data/work', help='');
 parser.add_argument('--videofile', type=str, default='', help='');
 parser.add_argument('--reference', type=str, default='', help='');
 opt = parser.parse_args();
@@ -31,8 +31,8 @@ print("Model %s loaded."%opt.initial_model);
 
 # ==================== GET OFFSETS ====================
 
-with open(os.path.join(opt.work_dir,opt.reference,'tracks.pckl'), 'r') as fil:
-    tracks = pickle.load(fil)
+with open(os.path.join(opt.work_dir,opt.reference,'tracks.pckl'), 'rb') as fil:
+    tracks = pickle.load(fil, encoding='latin1')
 
 dists = []
 offsets = []

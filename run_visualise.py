@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser(description = "SyncNet");
 parser.add_argument('--initial_model', type=str, default="data/syncnet.model", help='');
 parser.add_argument('--batch_size', type=int, default='20', help='');
 parser.add_argument('--vshift', type=int, default='15', help='');
-parser.add_argument('--data_dir', type=str, default='/mnt/hdd1/krdemo4', help='');
+parser.add_argument('--data_dir', type=str, default='data/work', help='');
 parser.add_argument('--videofile', type=str, default='', help='');
 parser.add_argument('--reference', type=str, default='', help='');
 opt = parser.parse_args();
@@ -27,11 +27,11 @@ setattr(opt,'crop_dir',os.path.join(opt.data_dir,'pycrop'))
 
 # ==================== LOAD FILES ====================
 
-with open(os.path.join(opt.work_dir,opt.reference,'tracks.pckl'), 'r') as fil:
-    tracks = pickle.load(fil)
+with open(os.path.join(opt.work_dir,opt.reference,'tracks.pckl'), 'rb') as fil:
+    tracks = pickle.load(fil, encoding='latin1')
 
-with open(os.path.join(opt.work_dir,opt.reference,'activesd.pckl'), 'r') as fil:
-    dists = pickle.load(fil)
+with open(os.path.join(opt.work_dir,opt.reference,'activesd.pckl'), 'rb') as fil:
+    dists = pickle.load(fil, encoding='latin1')
 
 # ==================== SMOOTH FACES ====================
 
@@ -44,11 +44,13 @@ for ii, track in enumerate(tracks):
 	minval = mean_dists[minidx] 
 	
 	fdist   	= numpy.stack([dist[minidx] for dist in dists[ii]])
-	fdist   	= numpy.pad(fdist, (2,4), 'constant', constant_values=10)
-	fdist_mf	= signal.medfilt(fdist,kernel_size=19)
+	fdist   	= numpy.pad(fdist, (3,3), 'constant', constant_values=10)
+
+	fconf   = numpy.median(mean_dists) - fdist
+	fconfm  = signal.medfilt(fconf,kernel_size=9)
 
 	for ij, frame in enumerate(track[0][0].tolist()) :
-		faces[frame].append([ii, fdist_mf[ij], track[1][0][ij], track[1][1][ij], track[1][2][ij]])
+		faces[frame].append([ii, fconfm[ij], track[1][0][ij], track[1][1][ij], track[1][2][ij]])
 
 # ==================== ADD DETECTIONS TO VIDEO ====================
 
@@ -68,7 +70,9 @@ while True:
 
 	for face in faces[frame_num]:
 
-		cv2.rectangle(image,(int(face[3]-face[2]),int(face[4]-face[2])),(int(face[3]+face[2]),int(face[4]+face[2])),(0,0,255),3)
+		clr = max(min(face[1]*30,255),0)
+
+		cv2.rectangle(image,(int(face[3]-face[2]),int(face[4]-face[2])),(int(face[3]+face[2]),int(face[4]+face[2])),(0,clr,255-clr),3)
 		cv2.putText(image,'Track %d, L2 Dist %.3f'%(face[0],face[1]), (int(face[3]-face[2]),int(face[4]-face[2])),cv2.FONT_HERSHEY_SIMPLEX,0.5,(255,255,255),2)
 
 	vOut.write(image)

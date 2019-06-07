@@ -4,7 +4,13 @@ import sys, time, os, pdb, argparse, pickle, subprocess
 import numpy as np
 import tensorflow as tf
 import cv2
+
 import scenedetect
+from scenedetect.video_manager import VideoManager
+from scenedetect.scene_manager import SceneManager
+from scenedetect.frame_timecode import FrameTimecode
+from scenedetect.stats_manager import StatsManager
+from scenedetect.detectors import ContentDetector
 
 from scipy.interpolate import interp1d
 from utils import label_map_util
@@ -16,7 +22,7 @@ from scipy import signal
 # ========== ========== ========== ==========
 
 parser = argparse.ArgumentParser(description = "FaceTracker");
-parser.add_argument('--data_dir', type=str, default='/dev/shm', help='Output direcotry');
+parser.add_argument('--data_dir', type=str, default='data/work', help='Output direcotry');
 parser.add_argument('--videofile', type=str, default='', help='Input video file');
 parser.add_argument('--reference', type=str, default='', help='Name of the video');
 parser.add_argument('--crop_scale', type=float, default=0.5, help='Scale bounding box');
@@ -268,20 +274,32 @@ def inference_video(opt):
 
 def scene_detect(opt):
 
-  scene_list = []
+  video_manager = VideoManager([os.path.join(opt.avi_dir,opt.reference,'video.avi')])
+  stats_manager = StatsManager()
+  scene_manager = SceneManager(stats_manager)
+  # Add ContentDetector algorithm (constructor takes detector options like threshold).
+  scene_manager.add_detector(ContentDetector())
+  base_timecode = video_manager.get_base_timecode()
 
-  detector_list = [scenedetect.detectors.ContentDetector(threshold = 32)]
+  video_manager.set_downscale_factor()
 
-  video_framerate, frames_read = scenedetect.detect_scenes_file(os.path.join(opt.avi_dir,opt.reference,'video.avi'), scene_list, detector_list)
+  video_manager.start()
 
-  savepath = os.path.join(opt.work_dir,opt.reference,'scene.pckl')
+  scene_manager.detect_scenes(frame_source=video_manager)
+
+  scene_list = scene_manager.get_scene_list(base_timecode)
+
+  savepath = os.path.join(opt.work_dir,'scene.pckl')
+
+  if scene_list == []:
+    scene_list = [(video_manager.get_base_timecode(),video_manager.get_current_timecode())]
 
   with open(savepath, 'wb') as fil:
-    pickle.dump([frames_read, scene_list], fil)
+    pickle.dump(scene_list, fil)
 
-  print('%s - scenes detected %d from %d frames'%(os.path.join(opt.avi_dir,opt.reference,'video.avi'),len(scene_list),frames_read))
+  print('%s - scenes detected %d'%(os.path.join(opt.avi_dir,opt.reference,'video.avi'),len(scene_list)))
 
-  return [frames_read, scene_list]
+  return scene_list
     
 
 # ========== ========== ========== ==========
@@ -300,30 +318,22 @@ if not(os.path.exists(os.path.join(opt.avi_dir,opt.reference))):
 if not(os.path.exists(os.path.join(opt.tmp_dir,opt.reference))):
   os.makedirs(os.path.join(opt.tmp_dir,opt.reference))
 
-command = ("ffmpeg -y -i %s -qscale:v 4 -async 1 -r 25 -deinterlace %s" % (opt.videofile,os.path.join(opt.avi_dir,opt.reference,'video.avi'))) #-async 1 
+command = ("ffmpeg -y -i %s -qscale:v 4 -r 25 %s" % (opt.videofile,os.path.join(opt.avi_dir,opt.reference,'video.avi'))) #-async 1  -deinterlace
 output = subprocess.call(command, shell=True, stdout=None)
 faces = inference_video(opt)
 
+# with open(os.path.join(opt.work_dir,opt.reference,'faces.pckl'), 'rb') as fil:
+#   faces = pickle.load(fil, encoding='latin1')
+
 scene = scene_detect(opt)
 
-# with open(os.path.join(opt.work_dir,opt.reference,'scene.pckl'), 'r') as fil:
-#   scene = pickle.load(fil)
-
-# with open(os.path.join(opt.work_dir,opt.reference,'faces.pckl'), 'r') as fil:
-#   faces = pickle.load(fil)
-
-scene[1]  = scene[1]+[scene[0]]
-
-prev_shot = 0
 alltracks = []
 vidtracks = []
 
-for end_shot in scene[1]:
+for shot in scene:
 
-  if ( len(faces)==scene[0] ) and ( end_shot-prev_shot >= opt.min_track ) :
-    alltracks.extend(track_shot(opt,faces[prev_shot:end_shot-1]))
-
-  prev_shot = end_shot
+  if shot[1].frame_num - shot[0].frame_num >= opt.min_track :
+    alltracks.extend(track_shot(opt,faces[shot[0].frame_num:shot[1].frame_num]))
 
 for ii, track in enumerate(alltracks):
 

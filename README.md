@@ -22,7 +22,7 @@ ffmpeg (3.4.2)
 In addition to above, these are required to run the full pipeline:
 ```
 tensorflow (1.2, 1.4)
-pyscenedetect (0.3.5) - does not work with 0.4
+pyscenedetect (0.5) 
 ```
 
 The demo has been tested with the package versions shown above, but may also work on other versions.
