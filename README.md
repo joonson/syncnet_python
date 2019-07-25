@@ -27,6 +27,18 @@ pyscenedetect (0.5)
 
 The demo has been tested with the package versions shown above, but may also work on other versions.
 
+### Docker
+
+Build
+```sh
+docker-compose build
+```
+
+Exec bash
+```sh
+docker-compose run syncnet bin/bash
+```
+
 ## Demo
 
 SyncNet demo:
