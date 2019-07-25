@@ -32,7 +32,7 @@ print("Model %s loaded."%opt.initial_model);
 # ==================== GET OFFSETS ====================
 
 with open(os.path.join(opt.work_dir,opt.reference,'tracks.pckl'), 'rb') as fil:
-    tracks = pickle.load(fil, encoding='latin1')
+    tracks = pickle.load(fil)
 
 dists = []
 offsets = []
@@ -42,13 +42,13 @@ for ii, track in enumerate(tracks):
     offsets.append(offset)
     dists.append(dist)
     confs.append(conf)
-      
+
 # ==================== PRINT RESULTS TO FILE ====================
 
 with open(os.path.join(opt.work_dir,opt.reference,'offsets.txt'), 'w') as fil:
     fil.write('FILENAME\tOFFSET\tCONF\n')
     for ii, track in enumerate(tracks):
       fil.write('%05d.avi\t%d\t%.3f\n'%(ii, offsets[ii], confs[ii]))
-      
+
 with open(os.path.join(opt.work_dir,opt.reference,'activesd.pckl'), 'wb') as fil:
     pickle.dump(dists, fil)

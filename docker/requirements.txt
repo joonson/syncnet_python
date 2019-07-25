@@ -1,0 +1,7 @@
+torch==1.1.0
+numpy==1.14.3
+scipy==1.0.1
+opencv-python==3.4.0.14
+python_speech_features==0.6
+tensorflow==1.4
+scenedetect==0.5
