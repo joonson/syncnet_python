@@ -28,10 +28,10 @@ setattr(opt,'crop_dir',os.path.join(opt.data_dir,'pycrop'))
 # ==================== LOAD FILES ====================
 
 with open(os.path.join(opt.work_dir,opt.reference,'tracks.pckl'), 'rb') as fil:
-    tracks = pickle.load(fil, encoding='latin1')
+    tracks = pickle.load(fil)
 
 with open(os.path.join(opt.work_dir,opt.reference,'activesd.pckl'), 'rb') as fil:
-    dists = pickle.load(fil, encoding='latin1')
+    dists = pickle.load(fil)
 
 # ==================== SMOOTH FACES ====================
 
