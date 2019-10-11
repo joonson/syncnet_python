@@ -91,7 +91,7 @@ class SyncNetInstance(torch.nn.Module):
         # Generate video and audio feats
         # ========== ==========
 
-        lastframe = len(images)-6
+        lastframe = len(images)-4
         im_feat = []
         cc_feat = []
 
@@ -155,8 +155,7 @@ class SyncNetInstance(torch.nn.Module):
             if ret == 0:
                 break
 
-            image_np = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            images.append(image_np)
+            images.append(image)
 
         im = numpy.stack(images,axis=3)
         im = numpy.expand_dims(im,axis=0)
