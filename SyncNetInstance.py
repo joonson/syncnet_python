@@ -91,7 +91,7 @@ class SyncNetInstance(torch.nn.Module):
         # Generate video and audio feats
         # ========== ==========
 
-        lastframe = len(images)-4
+        lastframe = len(images)-5
         im_feat = []
         cc_feat = []
 
