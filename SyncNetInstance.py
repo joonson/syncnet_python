@@ -4,13 +4,14 @@
 
 import torch
 import numpy
-import time, pdb, argparse, subprocess, os
+import time, pdb, argparse, subprocess, os, math, glob
 import cv2
 import python_speech_features
 
 from scipy import signal
 from scipy.io import wavfile
 from SyncNetModel import *
+from shutil import rmtree
 
 
 # ==================== Get OFFSET ====================
@@ -41,21 +42,33 @@ class SyncNetInstance(torch.nn.Module):
     def evaluate(self, opt, videofile):
 
         self.__S__.eval();
+
+        # ========== ==========
+        # Convert files
+        # ========== ==========
+
+        if os.path.exists(os.path.join(opt.tmp_dir,opt.reference)):
+          rmtree(os.path.join(opt.tmp_dir,opt.reference))
+
+        os.makedirs(os.path.join(opt.tmp_dir,opt.reference))
+
+        command = ("ffmpeg -y -i %s -threads 1 -f image2 %s" % (videofile,os.path.join(opt.tmp_dir,opt.reference,'%06d.jpg'))) 
+        output = subprocess.call(command, shell=True, stdout=None)
+
+        command = ("ffmpeg -y -i %s -async 1 -ac 1 -vn -acodec pcm_s16le -ar 16000 %s" % (videofile,os.path.join(opt.tmp_dir,opt.reference,'audio.wav'))) 
+        output = subprocess.call(command, shell=True, stdout=None)
         
         # ========== ==========
         # Load video 
         # ========== ==========
-        cap = cv2.VideoCapture(videofile)
 
-        frame_num = 1;
         images = []
-        while frame_num:
-            frame_num += 1
-            ret, image = cap.read()
-            if ret == 0:
-                break
+        
+        flist = glob.glob(os.path.join(opt.tmp_dir,opt.reference,'*.jpg'))
+        flist.sort()
 
-            images.append(image)
+        for fname in flist:
+            images.append(cv2.imread(fname))
 
         im = numpy.stack(images,axis=3)
         im = numpy.expand_dims(im,axis=0)
@@ -67,12 +80,7 @@ class SyncNetInstance(torch.nn.Module):
         # Load audio
         # ========== ==========
 
-        audiotmp = os.path.join(opt.tmp_dir,'audio.wav')
-
-        command = ("ffmpeg -y -i %s -async 1 -ac 1 -vn -acodec pcm_s16le -ar 16000 %s" % (videofile,audiotmp))
-        output = subprocess.call(command, shell=True, stdout=None)
-
-        sample_rate, audio = wavfile.read(audiotmp)
+        sample_rate, audio = wavfile.read(os.path.join(opt.tmp_dir,opt.reference,'audio.wav'))
         mfcc = zip(*python_speech_features.mfcc(audio,sample_rate))
         mfcc = numpy.stack([numpy.array(i) for i in mfcc])
 
@@ -83,15 +91,16 @@ class SyncNetInstance(torch.nn.Module):
         # Check audio and video input length
         # ========== ==========
 
-        if (float(len(audio))/16000) < (float(len(images))/25) :
-            print(" *** WARNING: The audio (%.4fs) is shorter than the video (%.4fs). Type 'cont' to continue. *** "%(float(len(audio))/16000,float(len(images))/25))
-            pdb.set_trace()
+        if (float(len(audio))/16000) != (float(len(images))/25) :
+            print("WARNING: Audio (%.4fs) and video (%.4fs) lengths are different."%(float(len(audio))/16000,float(len(images))/25))
+
+        min_length = min(len(images),math.floor(len(audio)/640))
         
         # ========== ==========
         # Generate video and audio feats
         # ========== ==========
 
-        lastframe = len(images)-5
+        lastframe = min_length-5
         im_feat = []
         cc_feat = []
 
