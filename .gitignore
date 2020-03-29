@@ -41,5 +41,5 @@ Thumbs.db
 #########################
 data/
 protos/
-utils/__init__.py
-
+utils/
+*.pth

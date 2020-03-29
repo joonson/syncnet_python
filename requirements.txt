@@ -1,0 +1,7 @@
+torch>=1.4.0
+torchvision>=0.5.0
+numpy>=1.18.1
+scipy>=1.2.1
+scenedetect==0.5.1
+opencv-contrib-python
+python_speech_features

@@ -4,28 +4,15 @@ This repository contains the demo for the audio-to-video synchronisation network
 1. Removing temporal lags between the audio and visual streams in a video;
 2. Determining who is speaking amongst multiple faces in a video. 
 
-The model can be used for research purposes under <a href="https://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution License</a>. Please cite the paper below if you make use of the software. 
+Please cite the paper below if you make use of the software. 
 
-## Prerequisites
-The following packages are required to run the SyncNet demo:
+## Dependencies
 ```
-python (2.7.12)
-pytorch (0.4.0)
-numpy (1.14.3)
-scipy (1.0.1)
-opencv-python (3.4.0) - via opencv-contrib-python
-python_speech_features (0.6)
-cuda (8.0)
-ffmpeg (3.4.2)
+pip install -r requirements.txt
 ```
 
-In addition to above, these are required to run the full pipeline:
-```
-tensorflow (1.2, 1.4)
-pyscenedetect (0.5) 
-```
+In addition, `ffmpeg` is required.
 
-The demo has been tested with the package versions shown above, but may also work on other versions.
 
 ## Demo
 

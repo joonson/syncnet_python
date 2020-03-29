@@ -1,9 +1,7 @@
 #!/usr/bin/python
 
-import sys, time, os, pdb, argparse, pickle, subprocess, glob
+import sys, time, os, pdb, argparse, pickle, subprocess, glob, cv2
 import numpy as np
-import tensorflow as tf
-import cv2
 from shutil import rmtree
 
 import scenedetect
@@ -14,9 +12,10 @@ from scenedetect.stats_manager import StatsManager
 from scenedetect.detectors import ContentDetector
 
 from scipy.interpolate import interp1d
-from utils import label_map_util
 from scipy.io import wavfile
 from scipy import signal
+
+from detectors import S3FD
 
 # ========== ========== ========== ==========
 # # PARSE ARGS
@@ -24,13 +23,14 @@ from scipy import signal
 
 parser = argparse.ArgumentParser(description = "FaceTracker");
 parser.add_argument('--data_dir',       type=str, default='data/work', help='Output direcotry');
-parser.add_argument('--videofile',      type=str, default='', help='Input video file');
-parser.add_argument('--reference',      type=str, default='', help='Name of the video');
-parser.add_argument('--crop_scale',     type=float, default=0.5, help='Scale bounding box');
-parser.add_argument('--min_track',      type=int, default=100, help='Minimum facetrack duration');
-parser.add_argument('--frame_rate',     type=int, default=25, help='Frame rate');
-parser.add_argument('--num_failed_det', type=int, default=25, help='Number of missed detections allowed');
-parser.add_argument('--min_face_size',  type=float, default=0.03, help='Minimum size of faces');
+parser.add_argument('--videofile',      type=str, default='',   help='Input video file');
+parser.add_argument('--reference',      type=str, default='',   help='Video reference');
+parser.add_argument('--facedet_scale',  type=float, default=0.25, help='Scale factor for face detection');
+parser.add_argument('--crop_scale',     type=float, default=0.40, help='Scale bounding box');
+parser.add_argument('--min_track',      type=int, default=100,  help='Minimum facetrack duration');
+parser.add_argument('--frame_rate',     type=int, default=25,   help='Frame rate');
+parser.add_argument('--num_failed_det', type=int, default=25,   help='Number of missed detections allowed before tracking is stopped');
+parser.add_argument('--min_face_size',  type=int, default=100,  help='Minimum face size in pixels');
 opt = parser.parse_args();
 
 setattr(opt,'avi_dir',os.path.join(opt.data_dir,'pyavi'))
@@ -99,7 +99,7 @@ def track_shot(opt,scenefaces):
         bboxes_i.append(interpfn(frame_i))
       bboxes_i  = np.stack(bboxes_i, axis=1)
 
-      if np.mean(bboxes_i[:,3]-bboxes_i[:,1]) > opt.min_face_size:
+      if max(np.mean(bboxes_i[:,2]-bboxes_i[:,0]), np.mean(bboxes_i[:,3]-bboxes_i[:,1])) > opt.min_face_size:
         tracks.append({'frame':frame_i,'bbox':bboxes_i})
 
   return tracks
@@ -116,23 +116,18 @@ def crop_video(opt,track,cropfile):
   fourcc = cv2.VideoWriter_fourcc(*'XVID')
   vOut = cv2.VideoWriter(cropfile+'t.avi', fourcc, opt.frame_rate, (224,224))
 
-  first_image = cv2.imread(flist[track['frame'][0]])
-
-  fw = first_image.shape[1]
-  fh = first_image.shape[0]
-
   dets = {'x':[], 'y':[], 's':[]}
 
   for det in track['bbox']:
 
-    dets['s'].append(((det[3]-det[1])*fw+(det[2]-det[0])*fh)/4) # H+W / 4
-    dets['x'].append((det[1]+det[3])*fw/2) # crop center x 
-    dets['y'].append((det[0]+det[2])*fh/2) # crop center y
+    dets['s'].append(max((det[3]-det[1]),(det[2]-det[0]))/2) 
+    dets['y'].append((det[1]+det[3])/2) # crop center x 
+    dets['x'].append((det[0]+det[2])/2) # crop center y
 
   # Smooth detections
-  dets['s'] = signal.medfilt(dets['s'],kernel_size=7)   
-  dets['x'] = signal.medfilt(dets['x'],kernel_size=5)
-  dets['y'] = signal.medfilt(dets['y'],kernel_size=5)
+  dets['s'] = signal.medfilt(dets['s'],kernel_size=13)   
+  dets['x'] = signal.medfilt(dets['x'],kernel_size=13)
+  dets['y'] = signal.medfilt(dets['y'],kernel_size=13)
 
   for fidx, frame in enumerate(track['frame']):
 
@@ -143,7 +138,7 @@ def crop_video(opt,track,cropfile):
 
     image = cv2.imread(flist[frame])
     
-    frame = np.pad(image,((bsi,bsi),(bsi,bsi),(0,0)), 'constant', constant_values=(0,0))
+    frame = np.pad(image,((bsi,bsi),(bsi,bsi),(0,0)), 'constant', constant_values=(110,110))
     my  = dets['y'][fidx]+bsi  # BBox center Y
     mx  = dets['x'][fidx]+bsi  # BBox center X
 
@@ -179,6 +174,8 @@ def crop_video(opt,track,cropfile):
 
   os.remove(cropfile+'t.avi')
 
+  print('Mean pos: x %.2f y %.2f s %.2f'%(np.mean(dets['x']),np.mean(dets['y']),np.mean(dets['s'])))
+
   return {'track':track, 'proc_track':dets}
 
 # ========== ========== ========== ==========
@@ -187,78 +184,34 @@ def crop_video(opt,track,cropfile):
 
 def inference_video(opt):
 
-
-  # Path to frozen detection graph. This is the actual model that is used for the object detection.
-  PATH_TO_CKPT = './protos/frozen_inference_graph_face.pb'
-
-  # List of the strings that is used to add correct label for each box.
-  PATH_TO_LABELS = './protos/face_label_map.pbtxt'
-
-  NUM_CLASSES = 2
-  MIN_CONF = 0.3
-
-  label_map = label_map_util.load_labelmap(PATH_TO_LABELS)
-  categories = label_map_util.convert_label_map_to_categories(label_map, max_num_classes=NUM_CLASSES, use_display_name=True)
-  category_index = label_map_util.create_category_index(categories)
-
-  def load_image_into_numpy_array(image):
-    (im_width, im_height) = image.size
-    return np.array(image.getdata()).reshape(
-        (im_height, im_width, 3)).astype(np.uint8)
+  DET = S3FD(device='cuda')
 
   flist = glob.glob(os.path.join(opt.frames_dir,opt.reference,'*.jpg'))
   flist.sort()
 
-  detection_graph = tf.Graph()
-  with detection_graph.as_default():
-      od_graph_def = tf.GraphDef()
-      with tf.gfile.GFile(PATH_TO_CKPT, 'rb') as fid:
-          serialized_graph = fid.read()
-          od_graph_def.ParseFromString(serialized_graph)
-          tf.import_graph_def(od_graph_def, name='')
-
   dets = []
-
-  with detection_graph.as_default():
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    with tf.Session(graph=detection_graph, config=config) as sess:
       
-      for fidx, fname in enumerate(flist):
-        
-        image = cv2.imread(fname)
+  for fidx, fname in enumerate(flist):
 
-        image_np = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    start_time = time.time()
+    
+    image = cv2.imread(fname)
 
-        image_np_expanded = np.expand_dims(image_np, axis=0)
-        image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')
+    image_np = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    bboxes = DET.detect_faces(image_np, conf_th=0.9, scales=[opt.facedet_scale])
 
-        boxes = detection_graph.get_tensor_by_name('detection_boxes:0')
+    dets.append([]);
+    for bbox in bboxes:
+      dets[-1].append({'frame':fidx, 'bbox':(bbox[:-1]).tolist(), 'conf':bbox[-1]})
 
-        scores = detection_graph.get_tensor_by_name('detection_scores:0')
-        classes = detection_graph.get_tensor_by_name('detection_classes:0')
-        num_detections = detection_graph.get_tensor_by_name('num_detections:0')
-        
-        # Actual detection.
-        start_time = time.time()
-        (boxes, scores, classes, num_detections) = sess.run(
-            [boxes, scores, classes, num_detections],
-            feed_dict={image_tensor: image_np_expanded})
-        elapsed_time = time.time() - start_time
-        
-        score = scores[0]
+    elapsed_time = time.time() - start_time
 
-        dets.append([]);
-        for index in range(0,len(score)):
-          if score[index] > MIN_CONF:
-            dets[-1].append({'frame':fidx, 'bbox':boxes[0][index].tolist(), 'conf':score[index]})
+    print('%s-%05d; %d dets; %.2f Hz' % (os.path.join(opt.avi_dir,opt.reference,'video.avi'),fidx,len(dets[-1]),(1/elapsed_time))) 
 
-        print('%s-%05d; %d dets; %.2f Hz' % (os.path.join(opt.avi_dir,opt.reference,'video.avi'),fidx,len(dets[-1]),(1/elapsed_time))) 
+  savepath = os.path.join(opt.work_dir,opt.reference,'faces.pckl')
 
-      savepath = os.path.join(opt.work_dir,opt.reference,'faces.pckl')
-
-      with open(savepath, 'wb') as fil:
-        pickle.dump(dets, fil)
+  with open(savepath, 'wb') as fil:
+    pickle.dump(dets, fil)
 
   return dets
 
@@ -283,7 +236,7 @@ def scene_detect(opt):
 
   scene_list = scene_manager.get_scene_list(base_timecode)
 
-  savepath = os.path.join(opt.work_dir,'scene.pckl')
+  savepath = os.path.join(opt.work_dir,opt.reference,'scene.pckl')
 
   if scene_list == []:
     scene_list = [(video_manager.get_base_timecode(),video_manager.get_current_timecode())]
@@ -327,10 +280,10 @@ os.makedirs(os.path.join(opt.tmp_dir,opt.reference))
 
 # ========== CONVERT VIDEO AND EXTRACT FRAMES ==========
 
-command = ("ffmpeg -y -i %s -async 1 -qscale:v 4 -r 25 %s" % (opt.videofile,os.path.join(opt.avi_dir,opt.reference,'video.avi'))) #-async 1  -deinterlace
+command = ("ffmpeg -y -i %s -qscale:v 2 -async 1 -r 25 %s" % (opt.videofile,os.path.join(opt.avi_dir,opt.reference,'video.avi')))
 output = subprocess.call(command, shell=True, stdout=None)
 
-command = ("ffmpeg -y -i %s -threads 1 -f image2 %s" % (os.path.join(opt.avi_dir,opt.reference,'video.avi'),os.path.join(opt.frames_dir,opt.reference,'%06d.jpg'))) 
+command = ("ffmpeg -y -i %s -qscale:v 2 -threads 1 -f image2 %s" % (os.path.join(opt.avi_dir,opt.reference,'video.avi'),os.path.join(opt.frames_dir,opt.reference,'%06d.jpg'))) 
 output = subprocess.call(command, shell=True, stdout=None)
 
 command = ("ffmpeg -y -i %s -ac 1 -vn -acodec pcm_s16le -ar 16000 %s" % (os.path.join(opt.avi_dir,opt.reference,'video.avi'),os.path.join(opt.avi_dir,opt.reference,'audio.wav'))) 
