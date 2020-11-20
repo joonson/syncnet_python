@@ -7,6 +7,8 @@ This repository contains the demo for the audio-to-video synchronisation network
 Please cite the paper below if you make use of the software. 
 
 ## Dependencies
+Update pip to >= 19.3 otherwise dependency installation may fail. See [opencv-contrib-python](https://pypi.org/project/opencv-contrib-python/) FAQ for more information.
+
 ```
 pip install -r requirements.txt
 ```
