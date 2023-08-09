@@ -199,6 +199,7 @@ class SyncNetInstance(torch.nn.Module):
 
 
     def loadParameters(self, path):
+        print("Loading model from %s" % path)
         loaded_state = torch.load(path, map_location=lambda storage, loc: storage);
 
         self_state = self.__S__.state_dict();

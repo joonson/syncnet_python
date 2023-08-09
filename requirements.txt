@@ -5,3 +5,4 @@ scipy>=1.2.1
 scenedetect==0.5.1
 opencv-contrib-python
 python_speech_features
+pandas
