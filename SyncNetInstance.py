@@ -140,8 +140,8 @@ class SyncNetInstance(torch.nn.Module):
         fconfm  = signal.medfilt(fconf,kernel_size=9)
         
         numpy.set_printoptions(formatter={'float': '{: 0.3f}'.format})
-        print('Framewise conf: ')
-        print(fconfm)
+        # print('Framewise conf: ')
+        # print(fconfm)
         print('AV offset: \t%d \nMin dist: \t%.3f\nConfidence: \t%.3f' % (offset,minval,conf))
 
         dists_npy = numpy.array([ dist.numpy() for dist in dists ])
