@@ -10,14 +10,14 @@ import python_speech_features
 
 from scipy import signal
 from scipy.io import wavfile
-from SyncNetModel import *
+from syncnet.SyncNetModel import S
 from shutil import rmtree
 
 
 # ==================== Get OFFSET ====================
 
 def calc_pdist(feat1, feat2, vshift=10):
-    
+
     win_size = vshift*2+1
 
     feat2p = torch.nn.functional.pad(feat2,(0,0,vshift,vshift))
@@ -52,18 +52,18 @@ class SyncNetInstance(torch.nn.Module):
 
         os.makedirs(os.path.join(opt.tmp_dir,opt.reference))
 
-        command = ("ffmpeg -y -i %s -threads 1 -f image2 %s" % (videofile,os.path.join(opt.tmp_dir,opt.reference,'%06d.jpg'))) 
+        command = ("ffmpeg -y -i %s -threads 1 -f image2 %s" % (videofile,os.path.join(opt.tmp_dir,opt.reference,'%06d.jpg')))
         output = subprocess.call(command, shell=True, stdout=None)
 
-        command = ("ffmpeg -y -i %s -async 1 -ac 1 -vn -acodec pcm_s16le -ar 16000 %s" % (videofile,os.path.join(opt.tmp_dir,opt.reference,'audio.wav'))) 
+        command = ("ffmpeg -y -i %s -async 1 -ac 1 -vn -acodec pcm_s16le -ar 16000 %s" % (videofile,os.path.join(opt.tmp_dir,opt.reference,'audio.wav')))
         output = subprocess.call(command, shell=True, stdout=None)
-        
+
         # ========== ==========
-        # Load video 
+        # Load video
         # ========== ==========
 
         images = []
-        
+
         flist = glob.glob(os.path.join(opt.tmp_dir,opt.reference,'*.jpg'))
         flist.sort()
 
@@ -95,7 +95,7 @@ class SyncNetInstance(torch.nn.Module):
             print("WARNING: Audio (%.4fs) and video (%.4fs) lengths are different."%(float(len(audio))/16000,float(len(images))/25))
 
         min_length = min(len(images),math.floor(len(audio)/640))
-        
+
         # ========== ==========
         # Generate video and audio feats
         # ========== ==========
@@ -106,7 +106,7 @@ class SyncNetInstance(torch.nn.Module):
 
         tS = time.time()
         for i in range(0,lastframe,opt.batch_size):
-            
+
             im_batch = [ imtv[:,:,vframe:vframe+5,:,:] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
             im_in = torch.cat(im_batch,0)
             im_out  = self.__S__.forward_lip(im_in.cuda());
@@ -123,7 +123,7 @@ class SyncNetInstance(torch.nn.Module):
         # ========== ==========
         # Compute offset
         # ========== ==========
-            
+
         print('Compute time %.3f sec.' % (time.time()-tS))
 
         dists = calc_pdist(im_feat,cc_feat,vshift=opt.vshift)
@@ -138,7 +138,7 @@ class SyncNetInstance(torch.nn.Module):
         # fdist   = numpy.pad(fdist, (3,3), 'constant', constant_values=15)
         fconf   = torch.median(mdist).numpy() - fdist
         fconfm  = signal.medfilt(fconf,kernel_size=9)
-        
+
         numpy.set_printoptions(formatter={'float': '{: 0.3f}'.format})
         print('Framewise conf: ')
         print(fconfm)
@@ -150,9 +150,9 @@ class SyncNetInstance(torch.nn.Module):
     def extract_feature(self, opt, videofile):
 
         self.__S__.eval();
-        
+
         # ========== ==========
-        # Load video 
+        # Load video
         # ========== ==========
         cap = cv2.VideoCapture(videofile)
 
@@ -171,7 +171,7 @@ class SyncNetInstance(torch.nn.Module):
         im = numpy.transpose(im,(0,3,4,1,2))
 
         imtv = torch.autograd.Variable(torch.from_numpy(im.astype(float)).float())
-        
+
         # ========== ==========
         # Generate video feats
         # ========== ==========
@@ -181,7 +181,7 @@ class SyncNetInstance(torch.nn.Module):
 
         tS = time.time()
         for i in range(0,lastframe,opt.batch_size):
-            
+
             im_batch = [ imtv[:,:,vframe:vframe+5,:,:] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
             im_in = torch.cat(im_batch,0)
             im_out  = self.__S__.forward_lipfeat(im_in.cuda());
@@ -192,7 +192,7 @@ class SyncNetInstance(torch.nn.Module):
         # ========== ==========
         # Compute offset
         # ========== ==========
-            
+
         print('Compute time %.3f sec.' % (time.time()-tS))
 
         return im_feat

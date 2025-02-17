@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 from pathlib import Path
 
 
-def main(video_path: str) -> float:
+def run_all(video_path: str) -> float:
     syncnet_model_path = Path(os.environ["SYNCNET_MODEL_DIR"]) / "syncnet_v2.model"
     assert syncnet_model_path.exists()
 
@@ -42,4 +42,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = "SyncNet")
     parser.add_argument("--video_path", type=str, required=True, help="Path to the video file")
     args = parser.parse_args()
-    result = main(**vars(args))
+    result = run_all(**vars(args))

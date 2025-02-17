@@ -13,7 +13,7 @@ if [ ! -f ${syncnet_path} ]; then
     wget http://www.robots.ox.ac.uk/~vgg/software/lipsync/data/syncnet_v2.model -O $syncnet_path
 fi
 
-sfd_path=${SYNCNET_MODEL_DIR}/s3fd_convertor.pth
+sfd_path=${SYNCNET_MODEL_DIR}/sfd_face.pth
 if [ ! -f ${sfd_path} ]; then
     wget https://www.robots.ox.ac.uk/~vgg/software/lipsync/data/sfd_face.pth -O $sfd_path
 fi
