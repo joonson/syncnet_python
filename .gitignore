@@ -43,3 +43,6 @@ data/
 protos/
 utils/
 *.pth
+
+.vscode/
+*.egg-info/
