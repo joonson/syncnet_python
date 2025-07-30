@@ -47,6 +47,27 @@ $DATA_DIR/pyavi/$REFERENCE/video_out.avi - output video (as shown below)
   <img src="img/ex2.jpg" width="45%"/>
 </p>
 
+## Device Support
+
+This implementation supports both **CUDA GPU** and **CPU** execution:
+
+- **CUDA GPU**: Automatically detected and used if available for faster processing
+- **CPU**: Used as fallback when CUDA is not available, or can be forced for compatibility
+
+### Device Selection
+The code automatically detects and uses the best available device:
+- If CUDA is available → Uses GPU for acceleration
+- If CUDA is not available → Falls back to CPU
+
+### CPU-Only Execution
+To force CPU-only execution (e.g., for compatibility or debugging), you can set:
+```python
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = ''
+```
+
+Or modify the device selection in the scripts directly.
+
 ## Publications
  
 ```
