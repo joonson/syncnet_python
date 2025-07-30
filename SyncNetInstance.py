@@ -34,10 +34,11 @@ def calc_pdist(feat1, feat2, vshift=10):
 
 class SyncNetInstance(torch.nn.Module):
 
-    def __init__(self, dropout = 0, num_layers_in_fc_layers = 1024):
+    def __init__(self, dropout = 0, num_layers_in_fc_layers = 1024, device='cpu'):
         super(SyncNetInstance, self).__init__();
 
-        self.__S__ = S(num_layers_in_fc_layers = num_layers_in_fc_layers).cuda();
+        self.device = device
+        self.__S__ = S(num_layers_in_fc_layers = num_layers_in_fc_layers).to(self.device);
 
     def evaluate(self, opt, videofile):
 
@@ -59,23 +60,40 @@ class SyncNetInstance(torch.nn.Module):
         output = subprocess.call(command, shell=True, stdout=None)
         
         # ========== ==========
-        # Load video 
+        # Load video (original method but memory optimized)
         # ========== ==========
 
-        images = []
-        
+        # Get list of image files
         flist = glob.glob(os.path.join(opt.tmp_dir,opt.reference,'*.jpg'))
         flist.sort()
-
-        for fname in flist:
-            images.append(cv2.imread(fname))
-
-        im = numpy.stack(images,axis=3)
-        im = numpy.expand_dims(im,axis=0)
-        im = numpy.transpose(im,(0,3,4,1,2))
+        
+        print(f'[INFO] Found {len(flist)} frames')
+        
+        # Load images with memory optimization
+        images = []
+        target_size = 224  # Standard size that should work with all Conv3d layers
+        
+        for i, fname in enumerate(flist):
+            if i % 500 == 0:
+                print(f'[INFO] Loading frame {i+1}/{len(flist)}')
+            
+            img = cv2.imread(fname)
+            if img is not None:
+                # Resize to standard size for compatibility
+                img = cv2.resize(img, (target_size, target_size))
+                images.append(img)
+        
+        print(f'[INFO] Loaded {len(images)} images, resized to {target_size}x{target_size}px')
+        
+        # Convert to the original tensor format
+        im = numpy.stack(images, axis=3)  # (H, W, C, T)
+        im = numpy.expand_dims(im, axis=0)  # (1, H, W, C, T)
+        im = numpy.transpose(im, (0, 3, 4, 1, 2))  # (1, C, T, H, W)
 
         imtv = torch.autograd.Variable(torch.from_numpy(im.astype(float)).float())
-
+        
+        print(f'[INFO] Video tensor shape: {imtv.shape}')
+        
         # ========== ==========
         # Load audio
         # ========== ==========
@@ -97,7 +115,7 @@ class SyncNetInstance(torch.nn.Module):
         min_length = min(len(images),math.floor(len(audio)/640))
         
         # ========== ==========
-        # Generate video and audio feats
+        # Generate video and audio feats (smaller batches)
         # ========== ==========
 
         lastframe = min_length-5
@@ -105,20 +123,42 @@ class SyncNetInstance(torch.nn.Module):
         cc_feat = []
 
         tS = time.time()
-        for i in range(0,lastframe,opt.batch_size):
+        print(f'[INFO] Processing {lastframe} frames with smaller batches for memory efficiency')
+        
+        # Use smaller batch size for memory efficiency  
+        small_batch_size = 1
+        
+        for i in range(0, lastframe, small_batch_size):
+            if i % 200 == 0:  # Progress every 200 frames
+                print(f'[INFO] Processing frame {i+1}/{lastframe}')
             
-            im_batch = [ imtv[:,:,vframe:vframe+5,:,:] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
-            im_in = torch.cat(im_batch,0)
-            im_out  = self.__S__.forward_lip(im_in.cuda());
+            # Process video frames
+            im_batch = [imtv[:,:,vframe:vframe+5,:,:] for vframe in range(i, min(lastframe, i+small_batch_size))]
+            im_in = torch.cat(im_batch, 0)
+            im_out = self.__S__.forward_lip(im_in.to(self.device))
             im_feat.append(im_out.data.cpu())
+            del im_batch, im_in, im_out
 
-            cc_batch = [ cct[:,:,:,vframe*4:vframe*4+20] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
-            cc_in = torch.cat(cc_batch,0)
-            cc_out  = self.__S__.forward_aud(cc_in.cuda())
+            # Process audio frames
+            cc_batch = [cct[:,:,:,vframe*4:vframe*4+20] for vframe in range(i, min(lastframe, i+small_batch_size))]
+            cc_in = torch.cat(cc_batch, 0)
+            cc_out = self.__S__.forward_aud(cc_in.to(self.device))
             cc_feat.append(cc_out.data.cpu())
+            del cc_batch, cc_in, cc_out
+            
+            # Garbage collection every 100 frames
+            if i % 100 == 0:
+                import gc
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
-        im_feat = torch.cat(im_feat,0)
-        cc_feat = torch.cat(cc_feat,0)
+        print('[INFO] Concatenating features...')
+        im_feat = torch.cat(im_feat, 0)
+        cc_feat = torch.cat(cc_feat, 0)
+        
+        # Clear audio tensor to free memory
+        del cct
 
         # ========== ==========
         # Compute offset
@@ -152,46 +192,85 @@ class SyncNetInstance(torch.nn.Module):
         self.__S__.eval();
         
         # ========== ==========
-        # Load video 
+        # Load video with memory optimization (same as evaluate method)
         # ========== ==========
         cap = cv2.VideoCapture(videofile)
 
-        frame_num = 1;
+        print(f'[INFO] Loading video frames for feature extraction...')
+        
+        frame_num = 0
         images = []
-        while frame_num:
-            frame_num += 1
+        target_size = 224  # Standard size that should work with all Conv3d layers
+        
+        while True:
             ret, image = cap.read()
             if ret == 0:
                 break
-
+            
+            if frame_num % 500 == 0:
+                print(f'[INFO] Loading frame {frame_num+1}')
+            
+            # Resize to standard size for compatibility and memory efficiency
+            image = cv2.resize(image, (target_size, target_size))
             images.append(image)
+            frame_num += 1
+        
+        cap.release()
+        print(f'[INFO] Loaded {len(images)} images, resized to {target_size}x{target_size}px')
 
-        im = numpy.stack(images,axis=3)
-        im = numpy.expand_dims(im,axis=0)
-        im = numpy.transpose(im,(0,3,4,1,2))
+        # Convert to the original tensor format
+        im = numpy.stack(images, axis=3)  # (H, W, C, T)
+        im = numpy.expand_dims(im, axis=0)  # (1, H, W, C, T) 
+        im = numpy.transpose(im, (0, 3, 4, 1, 2))  # (1, C, T, H, W)
 
         imtv = torch.autograd.Variable(torch.from_numpy(im.astype(float)).float())
         
+        print(f'[INFO] Video tensor shape: {imtv.shape}')
+        
         # ========== ==========
-        # Generate video feats
+        # Generate video feats with memory optimization
         # ========== ==========
 
         lastframe = len(images)-4
         im_feat = []
 
+        print(f'[INFO] Processing {lastframe} frames with memory optimization')
+        
+        # Use smaller batch size for memory efficiency
+        small_batch_size = 1
+        
         tS = time.time()
-        for i in range(0,lastframe,opt.batch_size):
+        for i in range(0, lastframe, small_batch_size):
+            if i % 200 == 0:  # Progress every 200 frames
+                print(f'[INFO] Processing frame {i+1}/{lastframe}')
             
-            im_batch = [ imtv[:,:,vframe:vframe+5,:,:] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
-            im_in = torch.cat(im_batch,0)
-            im_out  = self.__S__.forward_lipfeat(im_in.cuda());
+            # Process video frames with memory management
+            im_batch = [imtv[:,:,vframe:vframe+5,:,:] for vframe in range(i, min(lastframe, i+small_batch_size))]
+            im_in = torch.cat(im_batch, 0)
+            im_out = self.__S__.forward_lipfeat(im_in.to(self.device))
             im_feat.append(im_out.data.cpu())
+            
+            # Clean up intermediate variables
+            del im_batch, im_in, im_out
+            
+            # Garbage collection every 100 frames
+            if i % 100 == 0:
+                import gc
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
-        im_feat = torch.cat(im_feat,0)
-
-        # ========== ==========
-        # Compute offset
-        # ========== ==========
+        print('[INFO] Concatenating features...')
+        im_feat = torch.cat(im_feat, 0)
+        
+        # Clean up video tensor
+        del imtv
+        
+        # Final garbage collection
+        import gc
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
             
         print('Compute time %.3f sec.' % (time.time()-tS))
 

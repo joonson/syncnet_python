@@ -2,6 +2,9 @@
 #-*- coding: utf-8 -*-
 
 import time, pdb, argparse, subprocess, pickle, os, gzip, glob
+import torch
+
+from SyncNetInstance import *
 
 from SyncNetInstance import *
 
@@ -24,7 +27,11 @@ setattr(opt,'crop_dir',os.path.join(opt.data_dir,'pycrop'))
 
 # ==================== LOAD MODEL AND FILE LIST ====================
 
-s = SyncNetInstance();
+# Check if CUDA is available, otherwise use CPU
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print(f'[INFO] Using device: {device}')
+
+s = SyncNetInstance(device=device);
 
 s.loadParameters(opt.initial_model);
 print("Model %s loaded."%opt.initial_model);
