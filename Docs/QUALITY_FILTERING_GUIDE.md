@@ -32,7 +32,7 @@ Using strict quality filters (confidence ≥ 4.0, |offset| ≤ 5 frames):
 | Preset | Min Confidence | Max |Offset| | Use Case |
 |--------|---------------|--------------|----------|
 | `strict` | ≥6.0 | ≤2 frames | Publication-ready, highest quality |
-| `high` | ≥4.0 | ≤5 frames | Training data, good quality |
+| `high` | ≥5.0 | ≤5 frames | Training data, good quality |
 | `medium` | ≥2.5 | ≤8 frames | Balanced approach |
 | `relaxed` | ≥1.5 | ≤12 frames | Keep most usable chunks |
 | `none` | ≥0.0 | ≤50 frames | No filtering |

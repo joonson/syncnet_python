@@ -484,7 +484,7 @@ def main():
     if args.preset:
         presets = {
             'strict': {'min_confidence': 8.0, 'max_abs_offset': 2},
-            'high': {'min_confidence': 6.0, 'max_abs_offset': 3},
+            'high': {'min_confidence': 5.0, 'max_abs_offset': 4},
             'medium': {'min_confidence': 4.0, 'max_abs_offset': 5},
             'relaxed': {'min_confidence': 2.0, 'max_abs_offset': 8}
         }
