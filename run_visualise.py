@@ -1,21 +1,24 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #-*- coding: utf-8 -*-
 
 import torch
 import numpy
-import time, pdb, argparse, subprocess, pickle, os, glob
+import time, pdb, argparse, subprocess, pickle, os, glob, logging
 import cv2
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
 
 from scipy import signal
 
 # ==================== PARSE ARGUMENT ====================
 
-parser = argparse.ArgumentParser(description = "SyncNet");
-parser.add_argument('--data_dir', 	type=str, default='data/work', help='');
-parser.add_argument('--videofile', 	type=str, default='', help='');
-parser.add_argument('--reference', 	type=str, default='', help='');
-parser.add_argument('--frame_rate', type=int, default=25, help='Frame rate');
-opt = parser.parse_args();
+parser = argparse.ArgumentParser(description = "SyncNet")
+parser.add_argument('--data_dir', 	type=str, default='data/work', help='')
+parser.add_argument('--videofile', 	type=str, default='', help='')
+parser.add_argument('--reference', 	type=str, default='', help='')
+parser.add_argument('--frame_rate', type=int, default=25, help='Frame rate')
+opt = parser.parse_args()
 
 setattr(opt,'avi_dir',os.path.join(opt.data_dir,'pyavi'))
 setattr(opt,'tmp_dir',os.path.join(opt.data_dir,'pytmp'))
@@ -42,8 +45,8 @@ for tidx, track in enumerate(tracks):
 
 	mean_dists 	=  numpy.mean(numpy.stack(dists[tidx],1),1)
 	minidx 		= numpy.argmin(mean_dists,0)
-	minval 		= mean_dists[minidx] 
-	
+	minval 		= mean_dists[minidx]
+
 	fdist   	= numpy.stack([dist[minidx] for dist in dists[tidx]])
 	fdist   	= numpy.pad(fdist, (3,3), 'constant', constant_values=10)
 
@@ -69,20 +72,22 @@ for fidx, fname in enumerate(flist):
 
 	for face in faces[fidx]:
 
-		clr = max(min(face['conf']*25,255),0)
+		clr = int(max(min(face['conf']*25,255),0))
 
 		cv2.rectangle(image,(int(face['x']-face['s']),int(face['y']-face['s'])),(int(face['x']+face['s']),int(face['y']+face['s'])),(0,clr,255-clr),3)
 		cv2.putText(image,'Track %d, Conf %.3f'%(face['track'],face['conf']), (int(face['x']-face['s']),int(face['y']-face['s'])),cv2.FONT_HERSHEY_SIMPLEX,0.5,(255,255,255),2)
 
 	vOut.write(image)
 
-	print('Frame %d'%fidx)
+	logger.info('Frame %d', fidx)
 
 vOut.release()
 
 # ========== COMBINE AUDIO AND VIDEO FILES ==========
 
-command = ("ffmpeg -y -i %s -i %s -c:v copy -c:a copy %s" % (os.path.join(opt.avi_dir,opt.reference,'video_only.avi'),os.path.join(opt.avi_dir,opt.reference,'audio.wav'),os.path.join(opt.avi_dir,opt.reference,'video_out.avi'))) #-async 1 
-output = subprocess.call(command, shell=True, stdout=None)
-
-
+command = ["ffmpeg", "-y", "-i",
+           os.path.join(opt.avi_dir, opt.reference, 'video_only.avi'),
+           "-i", os.path.join(opt.avi_dir, opt.reference, 'audio.wav'),
+           "-c:v", "copy", "-c:a", "copy",
+           os.path.join(opt.avi_dir, opt.reference, 'video_out.avi')]
+subprocess.run(command, check=True)

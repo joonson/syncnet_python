@@ -7,12 +7,18 @@ This repository contains the demo for the audio-to-video synchronisation network
 Please cite the paper below if you make use of the software. 
 
 ## Dependencies
+
 ```
-pip install -r requirements.txt
+conda env create -f environment.yml
 ```
 
-In addition, `ffmpeg` is required.
 
+## Getting Started
+
+Download the pretrained model:
+```
+sh download_model.sh
+```
 
 ## Demo
 
@@ -21,16 +27,17 @@ SyncNet demo:
 python demo_syncnet.py --videofile data/example.avi --tmp_dir /path/to/temp/directory
 ```
 
-Check that this script returns:
+Check that this script returns approximately the following values (minor differences are expected depending on your platform and package versions):
 ```
 AV offset:      3 
 Min dist:       5.353
 Confidence:     10.021
 ```
 
-Full pipeline:
+## Full Pipeline
+
+Run the three stages — face detection and tracking, sync offset estimation, and visualisation:
 ```
-sh download_model.sh
 python run_pipeline.py --videofile /path/to/video.mp4 --reference name_of_video --data_dir /path/to/output
 python run_syncnet.py --videofile /path/to/video.mp4 --reference name_of_video --data_dir /path/to/output
 python run_visualise.py --videofile /path/to/video.mp4 --reference name_of_video --data_dir /path/to/output
@@ -39,7 +46,6 @@ python run_visualise.py --videofile /path/to/video.mp4 --reference name_of_video
 Outputs:
 ```
 $DATA_DIR/pycrop/$REFERENCE/*.avi - cropped face tracks
-$DATA_DIR/pywork/$REFERENCE/offsets.txt - audio-video offset values
 $DATA_DIR/pyavi/$REFERENCE/video_out.avi - output video (as shown below)
 ```
 <p align="center">
