@@ -231,7 +231,6 @@ def scene_detect(opt):
   savepath = os.path.join(opt.work_dir,opt.reference,'scene.pckl')
 
   if not scene_list:
-    video = open_video(video_path)
     scene_list = [(video.base_timecode, video.base_timecode + video.duration)]
 
   with open(savepath, 'wb') as fil:

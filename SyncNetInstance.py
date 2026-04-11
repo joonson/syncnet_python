@@ -149,9 +149,9 @@ class SyncNetInstance(torch.nn.Module):
         numpy.set_printoptions(formatter={'float': '{: 0.3f}'.format})
         logger.info('Framewise conf: ')
         logger.info(fconfm)
-        logger.info('AV offset: \t%d', offset)
-        logger.info('Min dist: \t%.3f', minval)
-        logger.info('Confidence: \t%.3f', conf)
+        logger.info('AV offset: \t%d', offset.item())
+        logger.info('Min dist: \t%.3f', minval.item())
+        logger.info('Confidence: \t%.3f', conf.item())
 
         dists_npy = numpy.array([ dist.numpy() for dist in dists ])
         return offset.numpy(), conf.numpy(), dists_npy
