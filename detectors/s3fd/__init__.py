@@ -1,10 +1,11 @@
-import time
+import time, logging
 import numpy as np
 import cv2
 import torch
-from torchvision import transforms
 from .nets import S3FDNet
 from .box_utils import nms_
+
+logger = logging.getLogger(__name__)
 
 PATH_WEIGHT = './detectors/s3fd/weights/sfd_face.pth'
 img_mean = np.array([104., 117., 123.])[:, np.newaxis, np.newaxis].astype('float32')
@@ -17,12 +18,12 @@ class S3FD():
         tstamp = time.time()
         self.device = device
 
-        print('[S3FD] loading with', self.device)
+        logger.info('[S3FD] loading with %s', self.device)
         self.net = S3FDNet(device=self.device).to(self.device)
-        state_dict = torch.load(PATH_WEIGHT, map_location=self.device)
+        state_dict = torch.load(PATH_WEIGHT, map_location=self.device, weights_only=True)
         self.net.load_state_dict(state_dict)
         self.net.eval()
-        print('[S3FD] finished loading (%.4f sec)' % (time.time() - tstamp))
+        logger.info('[S3FD] finished loading (%.4f sec)', time.time() - tstamp)
     
     def detect_faces(self, image, conf_th=0.8, scales=[1]):
 

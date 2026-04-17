@@ -1,0 +1,30 @@
+name: syncnet
+channels:
+  - conda-forge
+  - pytorch
+  - nvidia
+  - defaults
+dependencies:
+  # Core Python and Math Libraries
+  - python=3.10
+  - numpy
+  - scipy
+  
+  # PyTorch Ecosystem
+  - pytorch::pytorch==2.5.1
+  - pytorch::torchvision==0.20.1
+  - pytorch::torchaudio==2.5.1
+  - pytorch::pytorch-cuda=12.4
+  
+  # External Tools
+  - ffmpeg
+  
+  # Pip Installer
+  - pip
+  
+  # Pip-specific packages (Runs after Conda finishes)
+  - pip:
+    - scenedetect==0.6.7.1
+    - opencv-contrib-python==4.13.0.92
+    - python_speech_features==0.6
+    - tqdm
