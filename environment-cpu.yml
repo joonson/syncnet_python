@@ -25,3 +25,4 @@ dependencies:
     - scenedetect==0.6.7.1
     - opencv-contrib-python==4.13.0.92
     - python_speech_features==0.6
+    - tqdm

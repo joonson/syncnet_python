@@ -8,9 +8,17 @@ Please cite the paper below if you make use of the software.
 
 ## Dependencies
 
+GPU (CUDA):
 ```
 conda env create -f environment.yml
 ```
+
+CPU only:
+```
+conda env create -f environment-cpu.yml
+```
+
+The code automatically detects and uses a CUDA GPU if available, and falls back to CPU otherwise.
 
 
 ## Getting Started

@@ -3,8 +3,9 @@
 
 import torch
 import numpy
-import time, pdb, argparse, subprocess, pickle, os, glob, logging
+import time, argparse, subprocess, pickle, os, glob, logging
 import cv2
+from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -66,7 +67,7 @@ fh = first_image.shape[0]
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 vOut = cv2.VideoWriter(os.path.join(opt.avi_dir,opt.reference,'video_only.avi'), fourcc, opt.frame_rate, (fw,fh))
 
-for fidx, fname in enumerate(flist):
+for fidx, fname in tqdm(enumerate(flist), total=len(flist), desc='Rendering'):
 
 	image = cv2.imread(fname)
 
@@ -79,13 +80,12 @@ for fidx, fname in enumerate(flist):
 
 	vOut.write(image)
 
-	logger.info('Frame %d', fidx)
-
 vOut.release()
 
 # ========== COMBINE AUDIO AND VIDEO FILES ==========
 
-command = ["ffmpeg", "-y", "-i",
+logger.info('Combining audio and video into output file')
+command = ["ffmpeg", "-y", "-loglevel", "error", "-i",
            os.path.join(opt.avi_dir, opt.reference, 'video_only.avi'),
            "-i", os.path.join(opt.avi_dir, opt.reference, 'audio.wav'),
            "-c:v", "copy", "-c:a", "copy",

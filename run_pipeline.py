@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import sys, time, os, pdb, argparse, pickle, subprocess, glob, cv2, logging
+import sys, time, os, argparse, pickle, subprocess, glob, cv2, logging
 import numpy as np
 import torch
 from shutil import rmtree
@@ -9,6 +9,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname
 logger = logging.getLogger(__name__)
 
 from scenedetect import open_video, SceneManager, ContentDetector
+from tqdm import tqdm
 
 from scipy.interpolate import interp1d
 from scipy.io import wavfile
@@ -30,6 +31,7 @@ parser.add_argument('--min_track',      type=int, default=100,  help='Minimum fa
 parser.add_argument('--frame_rate',     type=int, default=25,   help='Frame rate')
 parser.add_argument('--num_failed_det', type=int, default=25,   help='Number of missed detections allowed before tracking is stopped')
 parser.add_argument('--min_face_size',  type=int, default=100,  help='Minimum face size in pixels')
+parser.add_argument('--overwrite',      action='store_true',    help='Overwrite existing output directories')
 opt = parser.parse_args()
 
 setattr(opt,'avi_dir',os.path.join(opt.data_dir,'pyavi'))
@@ -153,7 +155,8 @@ def crop_video(opt,track,cropfile):
 
   # ========== CROP AUDIO FILE ==========
 
-  command = ["ffmpeg", "-y", "-i",
+  logger.info('Cropping audio track for %s', cropfile)
+  command = ["ffmpeg", "-y", "-loglevel", "error", "-i",
              os.path.join(opt.avi_dir, opt.reference, 'audio.wav'),
              "-ss", "%.3f" % audiostart, "-to", "%.3f" % audioend,
              audiotmp]
@@ -163,7 +166,8 @@ def crop_video(opt,track,cropfile):
 
   # ========== COMBINE AUDIO AND VIDEO FILES ==========
 
-  command = ["ffmpeg", "-y", "-i", cropfile+'t.avi', "-i", audiotmp,
+  logger.info('Merging audio and video for %s', cropfile)
+  command = ["ffmpeg", "-y", "-loglevel", "error", "-i", cropfile+'t.avi', "-i", audiotmp,
              "-c:v", "copy", "-c:a", "copy", cropfile+'.avi']
   subprocess.run(command, check=True)
 
@@ -189,22 +193,19 @@ def inference_video(opt):
 
   dets = []
 
-  for fidx, fname in enumerate(flist):
+  with tqdm(enumerate(flist), total=len(flist), desc='Detecting faces') as pbar:
+    for fidx, fname in pbar:
 
-    start_time = time.time()
+      image = cv2.imread(fname)
 
-    image = cv2.imread(fname)
+      image_np = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+      bboxes = DET.detect_faces(image_np, conf_th=0.9, scales=[opt.facedet_scale])
 
-    image_np = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    bboxes = DET.detect_faces(image_np, conf_th=0.9, scales=[opt.facedet_scale])
+      dets.append([])
+      for bbox in bboxes:
+        dets[-1].append({'frame':fidx, 'bbox':(bbox[:-1]).tolist(), 'conf':bbox[-1]})
 
-    dets.append([])
-    for bbox in bboxes:
-      dets[-1].append({'frame':fidx, 'bbox':(bbox[:-1]).tolist(), 'conf':bbox[-1]})
-
-    elapsed_time = time.time() - start_time
-
-    logger.info('%s-%05d; %d dets; %.2f Hz', os.path.join(opt.avi_dir,opt.reference,'video.avi'),fidx,len(dets[-1]),(1/elapsed_time))
+      pbar.set_postfix(dets=len(dets[-1]))
 
   savepath = os.path.join(opt.work_dir,opt.reference,'faces.pckl')
 
@@ -250,6 +251,9 @@ def scene_detect(opt):
 for d in [opt.work_dir, opt.crop_dir, opt.avi_dir, opt.frames_dir, opt.tmp_dir]:
   path = os.path.join(d, opt.reference)
   if os.path.exists(path):
+    if not opt.overwrite:
+      sys.exit(f"Output directory already exists: {path}. Use --overwrite to overwrite.")
+    logger.warning('Overwriting existing directory: %s', path)
     rmtree(path)
 
 # ========== MAKE NEW DIRECTORIES ==========
@@ -259,16 +263,19 @@ for d in [opt.work_dir, opt.crop_dir, opt.avi_dir, opt.frames_dir, opt.tmp_dir]:
 
 # ========== CONVERT VIDEO AND EXTRACT FRAMES ==========
 
-command = ["ffmpeg", "-y", "-i", opt.videofile, "-qscale:v", "2", "-async", "1", "-r", "25",
+logger.info('Converting video to 25fps: %s', opt.videofile)
+command = ["ffmpeg", "-y", "-loglevel", "error", "-i", opt.videofile, "-qscale:v", "2", "-async", "1", "-r", "25",
            os.path.join(opt.avi_dir, opt.reference, 'video.avi')]
 subprocess.run(command, check=True)
 
-command = ["ffmpeg", "-y", "-i", os.path.join(opt.avi_dir, opt.reference, 'video.avi'),
+logger.info('Extracting frames from video')
+command = ["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(opt.avi_dir, opt.reference, 'video.avi'),
            "-qscale:v", "2", "-threads", "1", "-f", "image2",
            os.path.join(opt.frames_dir, opt.reference, '%06d.jpg')]
 subprocess.run(command, check=True)
 
-command = ["ffmpeg", "-y", "-i", os.path.join(opt.avi_dir, opt.reference, 'video.avi'),
+logger.info('Extracting audio from video')
+command = ["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(opt.avi_dir, opt.reference, 'video.avi'),
            "-ac", "1", "-vn", "-acodec", "pcm_s16le", "-ar", "16000",
            os.path.join(opt.avi_dir, opt.reference, 'audio.wav')]
 subprocess.run(command, check=True)
