@@ -34,10 +34,11 @@ def calc_pdist(feat1, feat2, vshift=10):
 
 class SyncNetInstance(torch.nn.Module):
 
-    def __init__(self, dropout = 0, num_layers_in_fc_layers = 1024):
+    def __init__(self, dropout = 0, num_layers_in_fc_layers = 1024, device='cpu'):
         super(SyncNetInstance, self).__init__();
 
-        self.__S__ = S(num_layers_in_fc_layers = num_layers_in_fc_layers).cuda();
+        self.device = device
+        self.__S__ = S(num_layers_in_fc_layers = num_layers_in_fc_layers).to(self.device);
 
     def evaluate(self, opt, videofile):
 
@@ -75,7 +76,7 @@ class SyncNetInstance(torch.nn.Module):
         im = numpy.transpose(im,(0,3,4,1,2))
 
         imtv = torch.autograd.Variable(torch.from_numpy(im.astype(float)).float())
-
+        
         # ========== ==========
         # Load audio
         # ========== ==========
@@ -109,12 +110,12 @@ class SyncNetInstance(torch.nn.Module):
             
             im_batch = [ imtv[:,:,vframe:vframe+5,:,:] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
             im_in = torch.cat(im_batch,0)
-            im_out  = self.__S__.forward_lip(im_in.cuda());
+            im_out  = self.__S__.forward_lip(im_in.to(self.device));
             im_feat.append(im_out.data.cpu())
 
             cc_batch = [ cct[:,:,:,vframe*4:vframe*4+20] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
             cc_in = torch.cat(cc_batch,0)
-            cc_out  = self.__S__.forward_aud(cc_in.cuda())
+            cc_out  = self.__S__.forward_aud(cc_in.to(self.device))
             cc_feat.append(cc_out.data.cpu())
 
         im_feat = torch.cat(im_feat,0)
@@ -184,7 +185,7 @@ class SyncNetInstance(torch.nn.Module):
             
             im_batch = [ imtv[:,:,vframe:vframe+5,:,:] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
             im_in = torch.cat(im_batch,0)
-            im_out  = self.__S__.forward_lipfeat(im_in.cuda());
+            im_out  = self.__S__.forward_lipfeat(im_in.to(self.device));
             im_feat.append(im_out.data.cpu())
 
         im_feat = torch.cat(im_feat,0)

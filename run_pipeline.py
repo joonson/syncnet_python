@@ -2,6 +2,7 @@
 
 import sys, time, os, pdb, argparse, pickle, subprocess, glob, cv2
 import numpy as np
+import torch
 from shutil import rmtree
 
 import scenedetect
@@ -184,7 +185,11 @@ def crop_video(opt,track,cropfile):
 
 def inference_video(opt):
 
-  DET = S3FD(device='cuda')
+  # Check if CUDA is available, otherwise use CPU
+  device = 'cuda' if torch.cuda.is_available() else 'cpu'
+  print(f'[INFO] Using device: {device}')
+  
+  DET = S3FD(device=device)
 
   flist = glob.glob(os.path.join(opt.frames_dir,opt.reference,'*.jpg'))
   flist.sort()

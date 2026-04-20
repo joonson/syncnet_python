@@ -35,7 +35,7 @@ def nms_(dets, thresh):
         inds = np.where(ovr <= thresh)[0]
         order = order[inds + 1]
 
-    return np.array(keep).astype(np.int)
+    return np.array(keep).astype(int)
 
 
 def decode(loc, priors, variances):
